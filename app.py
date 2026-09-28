@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 import ebooklib
 from ebooklib import epub
 
-st.set_page_title="만화 EPUB 변환기", page_icon="📚")
+st.set_page_config(page_title="만화 EPUB 변환기", page_icon="📚")
 
 st.title("📚 만화/이미지 HTML -> EPUB 변환기")
 st.markdown("정리된 `.png.html` 파일들을 업로드하면 오닉스 북스 등에서 읽기 좋은 EPUB 파일로 변환해 줍니다.")
