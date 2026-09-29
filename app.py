@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import re
 import tempfile
 from bs4 import BeautifulSoup
 import ebooklib
@@ -7,8 +8,8 @@ from ebooklib import epub
 
 st.set_page_config(page_title="만화 2단 비교 EPUB 변환기", page_icon="📚")
 
-st.title("📚 만화 2단 비교 HTML -> EPUB 변환기")
-st.markdown("PC처럼 **[왼쪽: 만화 이미지 | 오른쪽: 번역 텍스트]** 2단 구조를 오닉스 북스(가로 모드 추천)에서도 그대로 볼 수 있게 변환해 줍니다.")
+st.title("📚 만화 2단 비교 HTML -> EPUB 변환기 (완벽 고정형)")
+st.markdown("오닉스 북스(가로 모드)에서도 **좌우 2단 표 구조**로 확실하게 고정되고, 페이지 순서가 정확히 정렬되도록 개선된 버전입니다.")
 
 # 파일 업로드 (다중 선택 가능)
 uploaded_files = st.file_uploader(
@@ -20,37 +21,40 @@ uploaded_files = st.file_uploader(
 book_title = st.text_input("책 제목 (Title)", value="Manga_Comparison_Book")
 book_author = st.text_input("저자 (Author)", value="Private Lab")
 
-if st.button("2단 레이아웃 EPUB 파일 생성하기", type="primary"):
+def natural_sort_key(file):
+    """파일 이름 속 숫자를 정확히 인식하여 1, 2, ..., 10 순으로 정렬하는 함수"""
+    filename = file.name
+    numbers = re.findall(r'\d+', filename)
+    return [int(n) for n in numbers] if numbers else [filename]
+
+if st.button("2단 고정 EPUB 파일 생성하기", type="primary"):
     if not uploaded_files:
         st.warning("변환할 HTML 파일을 하나 이상 업로드해 주세요!")
     else:
-        with st.spinner("2단 구조의 EPUB 전자책을 패키징 중입니다... 잠시만 기다려주세요!"):
+        with st.spinner("페이지 정렬 및 2단 표 구조 패키징 중... 잠시만 기다려주세요!"):
             with tempfile.TemporaryDirectory() as tmpdirname:
                 book = epub.EpubBook()
                 
                 # 메타데이터 설정
-                book.set_identifier('id_manga_2col')
+                book.set_identifier('id_manga_table_2col')
                 book.set_title(book_title)
                 book.set_language('ko')
                 book.add_author(book_author)
                 
                 chapters = []
                 
-                # 업로드된 파일 정렬 (이름 순)
-                sorted_files = sorted(uploaded_files, key=lambda x: x.name)
+                # 💡 핵심 수정: 파일 이름 순서 오류를 잡는 '자연스러운 정렬' 적용
+                sorted_files = sorted(uploaded_files, key=natural_sort_key)
                 
                 for idx, uploaded_file in enumerate(sorted_files):
                     html_content = uploaded_file.read().decode('utf-8', errors='ignore')
                     
-                    # BeautifulSoup으로 기존 HTML 파싱하여 이미지와 텍스트 분리 추출 시도
                     soup = BeautifulSoup(html_content, 'html.parser')
                     
                     img_tag = soup.find('img')
                     text_div = soup.find('div', class_='text-content') or soup.find('div', class_='translation')
                     
-                    # 만약 특정 클래스가 없으면 본문 내용 전체나 body 내용을 텍스트 영역으로 활용
                     if not text_div:
-                        # body 내부에서 img를 제외한 나머지 내용을 가져오기
                         body_tag = soup.find('body')
                         if body_tag:
                             for im in body_tag.find_all('img'):
@@ -63,13 +67,13 @@ if st.button("2단 레이아웃 EPUB 파일 생성하기", type="primary"):
                         
                     img_src = img_tag['src'] if img_tag else ""
                     
-                    # 각 페이지별 XHTML 챕터 생성 (좌우 2단 Flexbox 구조 적용)
                     c = epub.EpubHtml(
                         title=f'Page {idx+1}: {uploaded_file.name}', 
                         file_name=f'page_{idx+1}.xhtml', 
                         lang='ko'
                     )
                     
+                    # 💡 핵심 수정: CSS Flex 대신 전자책 리더기에서 절대 무너지지 않는 HTML Table(표) 구조 사용
                     c.content = f"""
                     <html>
                     <head>
@@ -82,35 +86,30 @@ if st.button("2단 레이아웃 EPUB 파일 생성하기", type="primary"):
                                 color: #000000;
                                 font-family: 'Malgun Gothic', sans-serif;
                             }}
-                            .spread-container {{
-                                display: flex;
-                                flex-direction: row;
+                            table.spread-table {{
                                 width: 100%;
-                                height: 100vh;
-                                box-sizing: border-box;
-                                align-items: stretch;
+                                border-collapse: collapse;
+                                table-layout: fixed;
                             }}
-                            .image-pane {{
-                                flex: 1;
+                            td.image-cell {{
+                                width: 50%;
                                 text-align: center;
-                                padding-right: 10px;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
+                                vertical-align: middle;
+                                padding-right: 8px;
                             }}
-                            .image-pane img {{
+                            td.image-cell img {{
                                 max-width: 100%;
                                 max-height: 95vh;
                                 object-fit: contain;
                                 border: 1px solid #ddd;
                             }}
-                            .text-pane {{
-                                flex: 1;
-                                padding-left: 10px;
-                                overflow-y: auto;
+                            td.text-cell {{
+                                width: 50%;
+                                text-align: left;
+                                vertical-align: top;
+                                padding-left: 8px;
                                 font-size: 13px;
                                 line-height: 1.5;
-                                text-align: left;
                                 white-space: pre-wrap;
                                 background: #fcfcfc;
                                 border-left: 1px solid #ccc;
@@ -118,14 +117,16 @@ if st.button("2단 레이아웃 EPUB 파일 생성하기", type="primary"):
                         </style>
                     </head>
                     <body>
-                        <div class="spread-container">
-                            <div class="image-pane">
-                                <img src="{img_src}" alt="Manga Image"/>
-                            </div>
-                            <div class="text-pane">
-                                {extracted_text_html}
-                            </div>
-                        </div>
+                        <table class="spread-table">
+                            <tr>
+                                <td class="image-cell">
+                                    <img src="{img_src}" alt="Manga Image"/>
+                                </td>
+                                <td class="text-cell">
+                                    {extracted_text_html}
+                                </td>
+                            </tr>
+                        </table>
                     </body>
                     </html>
                     """
@@ -138,7 +139,6 @@ if st.button("2단 레이아웃 EPUB 파일 생성하기", type="primary"):
                 book.add_item(epub.EpubNcx())
                 book.add_item(epub.EpubNav())
                 
-                # 기본 내비게이션 스타일시트 추가
                 style = 'BODY { font-family: sans-serif; }'
                 nav_css = epub.EpubItem(
                     uid="style_nav", 
@@ -148,19 +148,17 @@ if st.button("2단 레이아웃 EPUB 파일 생성하기", type="primary"):
                 )
                 book.add_item(nav_css)
                 
-                # 책 순서 정의
                 book.spine = ['nav'] + chapters
                 
-                # EPUB 저장
                 output_epub_path = os.path.join(tmpdirname, "output.epub")
                 epub.write_epub(output_epub_path, book, {})
                 
                 with open(output_epub_path, "rb") as f:
                     epub_bytes = f.read()
                 
-                st.success("✨ 2단 레이아웃 EPUB 파일 변환 완료!")
+                st.success("✨ 순서 정렬 및 표 기반 2단 고정 EPUB 변환 완료!")
                 st.download_button(
-                    label="📥 2단 비교 EPUB 파일 다운로드",
+                    label="📥 완벽 고정형 EPUB 파일 다운로드",
                     data=epub_bytes,
                     file_name=f"{book_title}.epub",
                     mime="application/epub+zip"
