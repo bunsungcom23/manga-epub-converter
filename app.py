@@ -8,8 +8,8 @@ from ebooklib import epub
 
 st.set_page_config(page_title="만화 2단 비교 EPUB 변환기", page_icon="📚")
 
-st.title("📚 만화 2단 비교 HTML -> EPUB 변환기 (완벽 고정형)")
-st.markdown("오닉스 북스(가로 모드)에서도 **좌우 2단 표 구조**로 확실하게 고정되고, 페이지 순서가 정확히 정렬되도록 개선된 버전입니다.")
+st.title("📚 만화 2단 비교 HTML -> EPUB 변환기 (1:1 비율 및 스크롤 고정형)")
+st.markdown("오닉스 북스에서도 **왼쪽 이미지와 오른쪽 텍스트를 정확히 1:1 비율**로 맞추고, 긴 텍스트는 **오른쪽 내부 스크롤**을 통해 원본 HTML처럼 쾌적하게 비교 분석할 수 있도록 개선되었습니다.")
 
 # 파일 업로드 (다중 선택 가능)
 uploaded_files = st.file_uploader(
@@ -27,23 +27,23 @@ def natural_sort_key(file):
     numbers = re.findall(r'\d+', filename)
     return [int(n) for n in numbers] if numbers else [filename]
 
-if st.button("2단 고정 EPUB 파일 생성하기", type="primary"):
+if st.button("1:1 스크롤 고정형 EPUB 생성하기", type="primary"):
     if not uploaded_files:
         st.warning("변환할 HTML 파일을 하나 이상 업로드해 주세요!")
     else:
-        with st.spinner("페이지 정렬 및 2단 표 구조 패키징 중... 잠시만 기다려주세요!"):
+        with st.spinner("1:1 비율 및 스크롤 구조로 패키징 중입니다... 잠시만 기다려주세요!"):
             with tempfile.TemporaryDirectory() as tmpdirname:
                 book = epub.EpubBook()
                 
                 # 메타데이터 설정
-                book.set_identifier('id_manga_table_2col')
+                book.set_identifier('id_manga_scroll_1to1')
                 book.set_title(book_title)
                 book.set_language('ko')
                 book.add_author(book_author)
                 
                 chapters = []
                 
-                # 💡 핵심 수정: 파일 이름 순서 오류를 잡는 '자연스러운 정렬' 적용
+                # 자연스러운 정렬 적용 (1, 2, ..., 10순)
                 sorted_files = sorted(uploaded_files, key=natural_sort_key)
                 
                 for idx, uploaded_file in enumerate(sorted_files):
@@ -73,45 +73,58 @@ if st.button("2단 고정 EPUB 파일 생성하기", type="primary"):
                         lang='ko'
                     )
                     
-                    # 💡 핵심 수정: CSS Flex 대신 전자책 리더기에서 절대 무너지지 않는 HTML Table(표) 구조 사용
+                    # 💡 핵심 개선: 1:1 비율 강제 및 오른쪽 영역 스크롤바 부여 CSS 디자인
                     c.content = f"""
                     <html>
                     <head>
                         <title>{uploaded_file.name}</title>
                         <style>
-                            body {{
+                            html, body {{
                                 margin: 0;
-                                padding: 5px;
+                                padding: 0;
+                                width: 100%;
+                                height: 100%;
                                 background-color: #ffffff;
                                 color: #000000;
                                 font-family: 'Malgun Gothic', sans-serif;
+                                overflow: hidden;
                             }}
-                            table.spread-table {{
+                            .spread-table {{
                                 width: 100%;
+                                height: 100%;
                                 border-collapse: collapse;
                                 table-layout: fixed;
                             }}
                             td.image-cell {{
                                 width: 50%;
+                                height: 100%;
                                 text-align: center;
                                 vertical-align: middle;
-                                padding-right: 8px;
+                                padding: 10px;
+                                box-sizing: border-box;
                             }}
                             td.image-cell img {{
                                 max-width: 100%;
-                                max-height: 95vh;
+                                max-height: 98vh;
+                                width: auto;
+                                height: auto;
                                 object-fit: contain;
                                 border: 1px solid #ddd;
+                                display: block;
+                                margin: 0 auto;
                             }}
                             td.text-cell {{
                                 width: 50%;
-                                text-align: left;
+                                height: 100%;
                                 vertical-align: top;
-                                padding-left: 8px;
+                                padding: 15px;
+                                box-sizing: border-box;
+                                overflow-y: auto; /* 💡 핵심: 텍스트가 길면 오른쪽 영역 안에서만 스크롤바 작동 */
                                 font-size: 13px;
                                 line-height: 1.5;
+                                text-align: left;
                                 white-space: pre-wrap;
-                                background: #fcfcfc;
+                                background: #fdfdfd;
                                 border-left: 1px solid #ccc;
                             }}
                         </style>
@@ -156,9 +169,9 @@ if st.button("2단 고정 EPUB 파일 생성하기", type="primary"):
                 with open(output_epub_path, "rb") as f:
                     epub_bytes = f.read()
                 
-                st.success("✨ 순서 정렬 및 표 기반 2단 고정 EPUB 변환 완료!")
+                st.success("✨ 1:1 비율 및 스크롤 고정형 EPUB 변환 완료!")
                 st.download_button(
-                    label="📥 완벽 고정형 EPUB 파일 다운로드",
+                    label="📥 1:1 스크롤 고정형 EPUB 다운로드",
                     data=epub_bytes,
                     file_name=f"{book_title}.epub",
                     mime="application/epub+zip"
