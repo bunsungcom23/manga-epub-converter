@@ -6,10 +6,10 @@ from bs4 import BeautifulSoup
 import ebooklib
 from ebooklib import epub
 
-st.set_page_config(page_title="만화 2단 비교 EPUB 변환기", page_icon="📚")
+st.set_page_config(page_title="만화 가로모드 2단 비교 EPUB 변환기", page_icon="📚")
 
-st.title("📚 만화 2단 비교 HTML -> EPUB 변환기 (1:1 비율 및 스크롤 고정형)")
-st.markdown("오닉스 북스에서도 **왼쪽 이미지와 오른쪽 텍스트를 정확히 1:1 비율**로 맞추고, 긴 텍스트는 **오른쪽 내부 스크롤**을 통해 원본 HTML처럼 쾌적하게 비교 분석할 수 있도록 개선되었습니다.")
+st.title("📚 만화 가로모드 2단 비교 HTML -> EPUB 변환기")
+st.markdown("오닉스 북스 **가로모드**에 최적화하여 **[왼쪽: 만화 이미지 | 오른쪽: 번역 텍스트]**가 1:1 비율로 깔끔하게 배치되도록 만든 버전입니다.")
 
 # 파일 업로드 (다중 선택 가능)
 uploaded_files = st.file_uploader(
@@ -18,7 +18,7 @@ uploaded_files = st.file_uploader(
     accept_multiple_files=True
 )
 
-book_title = st.text_input("책 제목 (Title)", value="Manga_Comparison_Book")
+book_title = st.text_input("책 제목 (Title)", value="Manga_Landscape_Comparison")
 book_author = st.text_input("저자 (Author)", value="Private Lab")
 
 def natural_sort_key(file):
@@ -27,16 +27,16 @@ def natural_sort_key(file):
     numbers = re.findall(r'\d+', filename)
     return [int(n) for n in numbers] if numbers else [filename]
 
-if st.button("1:1 스크롤 고정형 EPUB 생성하기", type="primary"):
+if st.button("가로모드 2단 EPUB 생성하기", type="primary"):
     if not uploaded_files:
         st.warning("변환할 HTML 파일을 하나 이상 업로드해 주세요!")
     else:
-        with st.spinner("1:1 비율 및 스크롤 구조로 패키징 중입니다... 잠시만 기다려주세요!"):
+        with st.spinner("가로모드 최적화 및 2단 구조로 패키징 중입니다... 잠시만 기다려주세요!"):
             with tempfile.TemporaryDirectory() as tmpdirname:
                 book = epub.EpubBook()
                 
                 # 메타데이터 설정
-                book.set_identifier('id_manga_scroll_1to1')
+                book.set_identifier('id_manga_landscape_2col')
                 book.set_title(book_title)
                 book.set_language('ko')
                 book.add_author(book_author)
@@ -73,69 +73,64 @@ if st.button("1:1 스크롤 고정형 EPUB 생성하기", type="primary"):
                         lang='ko'
                     )
                     
-                    # 💡 핵심 개선: 1:1 비율 강제 및 오른쪽 영역 스크롤바 부여 CSS 디자인
+                    # 💡 가로모드 전용 최적화 CSS (이미지 찌그러짐 방지 및 가독성 좋은 폰트 크기 고정)
                     c.content = f"""
                     <html>
                     <head>
                         <title>{uploaded_file.name}</title>
                         <style>
-                            html, body {{
+                            @page {{
+                                size: landscape;
+                                margin: 5pt;
+                            }}
+                            body {{
                                 margin: 0;
                                 padding: 0;
-                                width: 100%;
-                                height: 100%;
                                 background-color: #ffffff;
                                 color: #000000;
                                 font-family: 'Malgun Gothic', sans-serif;
-                                overflow: hidden;
                             }}
-                            .spread-table {{
+                            .landscape-table {{
                                 width: 100%;
-                                height: 100%;
                                 border-collapse: collapse;
                                 table-layout: fixed;
                             }}
-                            td.image-cell {{
+                            td.img-col {{
                                 width: 50%;
-                                height: 100%;
                                 text-align: center;
                                 vertical-align: middle;
-                                padding: 10px;
-                                box-sizing: border-box;
+                                padding: 5px;
                             }}
-                            td.image-cell img {{
+                            td.img-col img {{
                                 max-width: 100%;
-                                max-height: 98vh;
+                                max-height: 88vh;
                                 width: auto;
                                 height: auto;
                                 object-fit: contain;
-                                border: 1px solid #ddd;
+                                border: 1px solid #e0e0e0;
                                 display: block;
                                 margin: 0 auto;
                             }}
-                            td.text-cell {{
+                            td.text-col {{
                                 width: 50%;
-                                height: 100%;
-                                vertical-align: top;
-                                padding: 15px;
-                                box-sizing: border-box;
-                                overflow-y: auto; /* 💡 핵심: 텍스트가 길면 오른쪽 영역 안에서만 스크롤바 작동 */
-                                font-size: 13px;
-                                line-height: 1.5;
                                 text-align: left;
+                                vertical-align: top;
+                                padding: 10px;
+                                font-size: 12px;
+                                line-height: 1.4;
                                 white-space: pre-wrap;
-                                background: #fdfdfd;
-                                border-left: 1px solid #ccc;
+                                background: #fafafa;
+                                border-left: 1px solid #d0d0d0;
                             }}
                         </style>
                     </head>
                     <body>
-                        <table class="spread-table">
+                        <table class="landscape-table">
                             <tr>
-                                <td class="image-cell">
+                                <td class="img-col">
                                     <img src="{img_src}" alt="Manga Image"/>
                                 </td>
-                                <td class="text-cell">
+                                <td class="text-col">
                                     {extracted_text_html}
                                 </td>
                             </tr>
@@ -169,9 +164,9 @@ if st.button("1:1 스크롤 고정형 EPUB 생성하기", type="primary"):
                 with open(output_epub_path, "rb") as f:
                     epub_bytes = f.read()
                 
-                st.success("✨ 1:1 비율 및 스크롤 고정형 EPUB 변환 완료!")
+                st.success("✨ 가로모드 최적화 EPUB 변환 완료!")
                 st.download_button(
-                    label="📥 1:1 스크롤 고정형 EPUB 다운로드",
+                    label="📥 가로모드용 EPUB 파일 다운로드",
                     data=epub_bytes,
                     file_name=f"{book_title}.epub",
                     mime="application/epub+zip"
